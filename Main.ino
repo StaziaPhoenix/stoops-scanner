@@ -71,11 +71,14 @@ void loop() {
   Serial.println(error_pix);
 //  Serial.println(error);
   Serial.println(90 + controller.pid(error, dt));
-  servo.write(90 + controller.pid(error, dt));
   Serial.println("--------");
   //printLine(pixels);
   //printLine(digital);
   delay(50);
+  if (leftIdx == ERR || rightIdx == ERR) {
+    return;
+  }
+  servo.write(90 + controller.pid(error, dt));
 }
 
 
@@ -114,7 +117,7 @@ void filter() {
  * Sets the cutoff between high and low values. Make dynamic, but for now a constant
  */
 int setThreshold() {
-  return 80;
+  return 100;
 }
 
 
