@@ -33,6 +33,65 @@ void Linescanner::read(int* pixels) {
   }
 }
 
+int Linescanner::calibrate(int expose, int* pixels) {
+  scan(expose);
+  read(pixels);
+  printLine(pixels);
+  scan(expose);
+  read(pixels);
+  printLine(pixels);
+  scan(expose);
+  read(pixels);
+  printLine(pixels);
 
+  int maxIdx = findMax(pixels);
+  float high_avg = average(maxIdx-5,maxIdx+5, pixels);
+  float low_avg = average(0, 5, 123, 128, pixels);
 
+  return (high_avg - low_avg)/2 + high_avg;
+}
 
+int Linescanner::findMax(const int* pixels) {
+  int maxim = 0;
+  for (int i = 0; i < 128; i++) {
+    if (pixels[i] > maxim) {
+      maxim = pixels[i];
+    }
+  }
+  return maxim;
+}
+
+float Linescanner::average(int lowIdx, int highIdx, const int* pixels) {
+  int sum = 0;
+  for (int i = lowIdx; i < highIdx+1; i++) {
+    sum += pixels[i];
+  }
+  return sum/11;
+}
+
+float Linescanner::average(int low_lowIdx, int low_highIdx, 
+              int high_lowIdx, int high_highIdx, const int* pixels) {
+  int sum = 0;
+  for (int i = low_lowIdx; i < low_highIdx; i++) {
+    sum += pixels[i];
+  }
+  for (int i = high_lowIdx; i < high_highIdx; i++) {
+    sum+= pixels[i];
+  }
+  return sum/10;
+}
+
+void Linescanner::printLine(int array[]) {
+  if (array[64] > 1) {
+    for (int i=0;i<128;i++) {
+      Serial.print(array[i]);
+      Serial.print(" ");
+    }
+  } else {
+    for (int i=0;i<128;i++) {
+      Serial.print(array[i]);
+    }
+  }
+  
+  Serial.println();
+}
