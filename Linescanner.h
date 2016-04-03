@@ -14,7 +14,7 @@ class Linescanner {
     int calibrate(int expose, int* pixels);
     void printLine(int* array);
   private:
-    int findMax(const int* pixels);
+    byte findMax(const int* pixels);
     float average(int lowIdx, int highIdx, const int* pixels);
     float average(int low_lowIdx, int low_highIdx, 
               int high_lowIdx, int high_highIdx, const int* pixels);

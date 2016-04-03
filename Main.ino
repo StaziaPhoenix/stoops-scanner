@@ -4,6 +4,7 @@
 #include "math.h"
 
 #define ERR 129
+#define NONE 130
 
 int sync = 12;
 int CLK = 11;
@@ -31,12 +32,12 @@ Servo servo;
 
 int motor = 9;
 int led = 13;
-int debug = 1;
+int debug = 0;
 int center = 90;
 int left = 120;
 int right = 60;
 int servoPin = 6;
-int trigger = 8;
+//int trigger = 2;
 int threshold;
 
 // Byte (one character) read in from Virtual Serial COMM (Bluetooth)
@@ -48,7 +49,7 @@ byte ack = 0;
 Linescanner cam(CLK,sync,data);
 
 void setup() {
-  attachInterrupt(digitalPinToInterrupt(trigger), killSwitch, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(trigger), killSwitch, CHANGE);
   
   pinMode(CLK,OUTPUT);
   pinMode(sync,OUTPUT);
@@ -97,8 +98,6 @@ void loop() {
  * high indicates the line and low occurs else
  */
 void filter() {
-  //static int threshold = setThreshold();
-
   for (int i = 0; i < numPixels; i++) {
     if (pixels[i] > threshold) {
       digital[i] = 1;
@@ -106,7 +105,7 @@ void filter() {
       digital[i] = 0;
     }
   }
-
+  cam.printLine(digital);
 }
 
 
@@ -139,7 +138,7 @@ int findEdge(int startIdx) {
 
 
 // Performs serial command based on user input
-void doSerialCmd( byte cmd ) {
+bool doSerialCmd( byte cmd ) {
   switch( cmd ) {
     // Turn LED HIGH
     case ('w'):
@@ -212,10 +211,17 @@ void doSerialCmd( byte cmd ) {
       printNewCmdLn();
       break;
     case ('s'):
-      PID();
+      run();
       printNewCmdLn();
       break;
+    case ('b'):
+      calibrate();
+      printNewCmdLn();;
+      break;
+    case (NONE):
+      return false;
   }
+  return true;
 }
 
 // Prompts User for input serial command
@@ -227,6 +233,8 @@ byte getSerialCmd() {
     Serial.write(inByte);
     printNewLn();
     return inByte;
+  } else {
+    return NONE;
   }
 }
 
@@ -377,47 +385,48 @@ void printCmdList() {
   Serial.write("      <0>    PWM   0   (0%)\r\n");  
   
   Serial.write("      <c>    Command List\r\n"); 
-  Serial.write("      <s>    PID");
+  Serial.write("      <s>    run\r\n");
+  Serial.write("      <b>    Calibrate\r\n");
 
   Serial.write("\n");
 }
 
 
 
-void PID() {
-  pwm100();
-  while(1) {
-    doSerialCmd(getSerialCmd());
-    
-    cam.scan(expose);
-    cam.read(pixels);
-    filter();
-  
-    int leftIdx = findEdge(0);
-    int rightIdx = findEdge(numPixels-1);
-    process_var = (rightIdx-leftIdx)/2 + leftIdx;
-  
-    int error_pix = process_var-setpoint;
-    error = atan2(error_pix,adj)*(180/3.141592);
-    dt = (temp = millis())-prev_millis;
-    prev_millis = temp;
-  
-    if (debug) {
-      Serial.println(error_pix);
-      Serial.println(90 + controller.pid(error, dt));
-      Serial.println("--------");
-      //cam.printLine(pixels);
-      //cam.printLine(digital);
-    }
-    if (leftIdx == ERR || rightIdx == ERR) {
-      analogWrite(motor,0);
-    } else {
-      servo.write(90 + controller.pid(error, dt));
-    }
+void run() {
+  //pwm100();
+  while(!doSerialCmd(getSerialCmd())) {
+    PID();
   }
 }
 
+void PID() {
+  cam.scan(expose);
+  cam.read(pixels);
+  filter();
 
+  int leftIdx = findEdge(0);
+  int rightIdx = findEdge(numPixels-1);
+  process_var = (rightIdx-leftIdx)/2 + leftIdx;
+
+  int error_pix = process_var-setpoint;
+  error = atan2(error_pix,adj)*(180/3.141592);
+  dt = (temp = millis())-prev_millis;
+  prev_millis = temp;
+
+  if (debug) {
+    Serial.println(error_pix);
+    Serial.println(90 + controller.pid(error, dt));
+    Serial.println("--------");
+    //cam.printLine(pixels);
+    //cam.printLine(digital);
+  }
+  if (leftIdx == ERR || rightIdx == ERR) {
+    //pwm0();
+  } else {
+    servo.write(90 + controller.pid(error, dt));
+  }
+}
 
 
 
@@ -449,25 +458,17 @@ void printNewLn() {
   Serial.write("\r\n");
 }
 
-void killSwitch() {
-  analogWrite(motor, 0);
-//  analogWrite(pwmB, 0);
-  digitalWrite(led, LOW);
+void calibrate() {
+  threshold = cam.calibrate(expose, pixels);
+  Serial.println(threshold);
+  filter();
+  while (!doSerialCmd(getSerialCmd())) {
+    PID();
+  }
 }
 
-/* 
- * Sets the cutoff between high and low values. Make dynamic, but for now a constant
- */
-//int setThreshold() {
-//  return 70;
-//}
-
-//void printLine(int array[]) {
-//  for (int i=0;i<numPixels;i++) {
-//    Serial.print(array[i]);
-//    Serial.print(" ");
-//    delay(1);
-//  }
-//  //delay(1000);
-//  Serial.println();
+//void killSwitch() {
+//  analogWrite(motor, 0);
+////  analogWrite(pwmB, 0);
+//  digitalWrite(led, LOW);
 //}

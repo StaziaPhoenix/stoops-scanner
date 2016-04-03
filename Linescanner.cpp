@@ -36,29 +36,28 @@ void Linescanner::read(int* pixels) {
 int Linescanner::calibrate(int expose, int* pixels) {
   scan(expose);
   read(pixels);
-  printLine(pixels);
   scan(expose);
   read(pixels);
-  printLine(pixels);
   scan(expose);
   read(pixels);
-  printLine(pixels);
 
-  int maxIdx = findMax(pixels);
+  byte maxIdx = findMax(pixels);
   float high_avg = average(maxIdx-5,maxIdx+5, pixels);
   float low_avg = average(0, 5, 123, 128, pixels);
 
-  return (high_avg - low_avg)/2 + high_avg;
+  return (high_avg-low_avg)/2 + low_avg;
 }
 
-int Linescanner::findMax(const int* pixels) {
+byte Linescanner::findMax(const int* pixels) {
   int maxim = 0;
+  byte idx;
   for (int i = 0; i < 128; i++) {
     if (pixels[i] > maxim) {
       maxim = pixels[i];
+      idx = i;
     }
   }
-  return maxim;
+  return idx;
 }
 
 float Linescanner::average(int lowIdx, int highIdx, const int* pixels) {
