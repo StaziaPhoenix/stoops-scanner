@@ -37,6 +37,7 @@ int left = 120;
 int right = 60;
 int servoPin = 6;
 int trigger = 8;
+int threshold;
 
 // Byte (one character) read in from Virtual Serial COMM (Bluetooth)
 byte inByte = 0;
@@ -64,6 +65,7 @@ void setup() {
   servo.write(90);
 
   // get line and filter into binary
+  threshold = cam.calibrate(expose,pixels);
   cam.scan(expose);
   cam.read(pixels);
   filter();
@@ -95,7 +97,7 @@ void loop() {
  * high indicates the line and low occurs else
  */
 void filter() {
-  static int threshold = setThreshold();
+  //static int threshold = setThreshold();
 
   for (int i = 0; i < numPixels; i++) {
     if (pixels[i] > threshold) {
@@ -456,9 +458,9 @@ void killSwitch() {
 /* 
  * Sets the cutoff between high and low values. Make dynamic, but for now a constant
  */
-int setThreshold() {
-  return 70;
-}
+//int setThreshold() {
+//  return 70;
+//}
 
 //void printLine(int array[]) {
 //  for (int i=0;i<numPixels;i++) {

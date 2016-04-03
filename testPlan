@@ -1,0 +1,31 @@
+1)	Test new calibration method using testCalibrate folder. 
+
+	Manually choose threshold based on first 3 readings and see how
+	calibrate's output compares. Move to step 2 after calibration is 
+	reliable.
+-----------------------
+2)	Make sure calibrate is correctly integrated into large file. 
+
+	Run Main.ino with calibrate integrated (already exists). Print
+	digital following every read/filter and wiggle laterally to check line		viewage based on calibrate's output.
+-----------------------
+3)	Continue battling light problem of April 1.
+
+	First check performance in bright room with no self-lighting. If
+	results good, be assured and continue development assuming good lighting
+	with parallel development of lighting. If bright room results not good,
+	identify non-lighting problem and pursue as greater importance.
+
+	Try increasing exposure time substanially, with no self-lighting. View
+	raw pixel output and calibrate's digital line. Possible performance
+	increase in dim lighting with dynamic exposure setting if manual
+	changes in exposure yield positive result.
+
+	If determine that self-lighting is necessary, build the epic contraption
+	of ages. I will draw it now, essentially create an artificial ceiling to
+	provide consistent overhead brightness.
+
+	Return if none of above work.
+------------------------
+4)	Edge cases. Incorporate behavior for intersections and jolts.
+
