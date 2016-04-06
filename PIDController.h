@@ -7,13 +7,23 @@ class PIDController {
   public:
     PIDController() {}
     int pid(float err, float dt);
-    int pi(float err, float dt);
+    void incP();
+    void incI();
+    void incD();
+    void decP();
+    void decI();
+    void decD();
+    float getP();
+    float getI();
+    float getD();
+    int clamp(float pid);
   private:
-    const int kP = 1;
-    const int kI = 0;
-    const int kD = 0;
+    float kP = 1; // .4 had good results on straight
+    float kI = 0;
+    float kD = 1;
     int prev_err = 0;
     float I = 0;
+    int outMax = 60;
 };
 
 #endif
