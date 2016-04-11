@@ -3,26 +3,39 @@
 #include "PIDController.h"
 #include "math.h"
 
-#define ERR 129
+#define END 129
 #define NONE 130
+#define NOLINE 131
+#define sync 12
+#define CLK 11
+#define data A0
+#define motor 3
+#define led 13
+#define center 90
+#define left 120
+#define right 60
+#define servoPin 6
+#define setpoint 64
+#define adj 65
+#define numPixels 128
 
-int sync = 12;
-int CLK = 11;
-int data = A0;
+byte debug = 0;
+byte offLeft = 0;
+byte offRight = 0;
 
-const unsigned int numPixels = 128;
+// const unsigned int numPixels = 128;
 int pixels[numPixels];
-int digital[numPixels];
+byte digital[numPixels];
 
 /* PID info */
 PIDController controller;
-int setpoint = 64;
+//int setpoint = 64;
 int process_var;
 float error;
 float dt;
 float prev_millis;
-const int adj = 65;
-int temp;
+//const int adj = 65;
+int _time;
 
 //unsigned long utime;
 //int itime;
@@ -30,13 +43,6 @@ int temp;
 const unsigned int expose = 7390;
 Servo servo;
 
-int motor = 9;
-int led = 13;
-int debug = 1;
-int center = 90;
-int left = 120;
-int right = 60;
-int servoPin = 6;
 //int trigger = 2;
 int threshold;
 
@@ -64,18 +70,6 @@ void setup() {
 
   servo.attach(servoPin);
   servo.write(90);
-
-  // get line and filter into binary
-//  threshold = cam.calibrate(expose,pixels);
-//  cam.scan(expose);
-//  cam.read(pixels);
-//  filter();
-//
-//  // find left and right edges, use them to make setpoint
-//  int leftIdx = findEdge(0);
-//  int rightIdx = findEdge(numPixels-1);
-//  setpoint = (rightIdx-leftIdx)/2 + leftIdx;
-//  Serial.println(setpoint);
 }
 
 void loop() {
@@ -105,39 +99,44 @@ void filter() {
       digital[i] = 0;
     }
   }
-  //cam.printLine(digital);
 }
 
 
 int findEdge(int startIdx) {
   static const int halfLine = numPixels/2;
-
+  
   if (startIdx < halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
-      return ERR;
+      offLeft = 1; // if the line is falling off the left edge
+      return END;
     }
     for (int i = startIdx; i < numPixels-4; i++) {
       if (digital[i] == 0 && digital[i+1] == 1 && digital[i+2] == 1 && 
           digital[i+3] == 1) {
+        offLeft = 0; // if there is a left edge
         return i+1;
       }
     }
+    // if no line
     Serial.println("Could not find left edge");
-    return ERR;
+    return NOLINE;
   }
-
+// ----------- Left above, right below -------------- //
   if (startIdx > halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
-      return ERR;
+      offRight = 1; // if line is falling off right edge
+      return END;
     }
     for (int i = startIdx; i > 4; i--) {
       if (digital[i] == 0 && digital[i-1] == 1 && digital[i-2] == 1 && 
           digital[i-3] == 1) {
+        offRight = 0; // if there is a right edge
         return i-1;
       }
     }
+    // if no line
     Serial.println("Could not find right edge");
-    return ERR;
+    return NOLINE;
   }
 }
 
@@ -159,26 +158,26 @@ bool doSerialCmd( byte cmd ) {
       leftServo90();
       printNewCmdLn();
       break;
-//    case ('1'):
-//      pwm10();
-//      printNewCmdLn();
-//      break;
-//    // Turn LED LOW
-//    case ('2'):
-//      pwm20();
-//      printNewCmdLn();
-//      break;
-//    // Turn LED LOW
-//    case ('3'):
-//      pwm30();
-//      printNewCmdLn();
-//      break;
-//    // Turn LED LOW
-//    case ('4'):
-//      pwm40();
-//      printNewCmdLn();
-//      break;
-//    // Turn LED LOW
+    case ('1'):
+      pwm10();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('2'):
+      pwm20();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('3'):
+      pwm30();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('4'):
+      pwm40();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
     case ('5'):
       pwm50();
       printNewCmdLn();
@@ -248,6 +247,8 @@ bool doSerialCmd( byte cmd ) {
       decPid('i');
       printNewCmdLn();
       break;
+    case ('e'):
+      return true;
     case ('g'):
       debug = debug^1;
       Serial.print("Debug is ");
@@ -256,7 +257,7 @@ bool doSerialCmd( byte cmd ) {
     case (NONE):
       return false;
   }
-  return true;
+  return false;
 }
 
 // Prompts User for input serial command
@@ -384,40 +385,40 @@ void pwm50() {
 }
 
 //// Turns LED OFF and writes to Serial
-//void pwm40() {
-//  digitalWrite(led, LOW);
-//  delay(300);
-//  digitalWrite(led, HIGH);
-//  Serial.write("    PWM 102 (40%) motor is ON!");
-//  analogWrite(motor,102);
-//}
-//
-//// Turns LED OFF and writes to Serial
-//void pwm30() {
-//  digitalWrite(led, LOW);
-//  delay(300);
-//  digitalWrite(led, HIGH);
-//  Serial.write("    PWM 77 (30%) motor is ON!");
-//  analogWrite(motor,77);
-//}
-//
-//// Turns LED OFF and writes to Serial
-//void pwm20() {
-//  digitalWrite(led, LOW);
-//  delay(300);
-//  digitalWrite(led, HIGH);
-//  Serial.write("    PWM 51 (20%) motor is ON!");
-//  analogWrite(motor,51);
-//}
-//
-//// Turns LED OFF and writes to Serial
-//void pwm10() {
-//  digitalWrite(led, LOW);
-//  delay(300);
-//  digitalWrite(led, HIGH);
-//  Serial.write("    PWM 26 (10%) motor is ON!");
-//  analogWrite(motor,26);
-//}
+void pwm40() {
+  digitalWrite(led, LOW);
+  delay(300);
+  digitalWrite(led, HIGH);
+  Serial.write("    PWM 102 (40%) motor is ON!");
+  analogWrite(motor,102);
+}
+
+// Turns LED OFF and writes to Serial
+void pwm30() {
+  digitalWrite(led, LOW);
+  delay(300);
+  digitalWrite(led, HIGH);
+  Serial.write("    PWM 77 (30%) motor is ON!");
+  analogWrite(motor,77);
+}
+
+// Turns LED OFF and writes to Serial
+void pwm20() {
+  digitalWrite(led, LOW);
+  delay(300);
+  digitalWrite(led, HIGH);
+  Serial.write("    PWM 51 (20%) motor is ON!");
+  analogWrite(motor,51);
+}
+
+// Turns LED OFF and writes to Serial
+void pwm10() {
+  digitalWrite(led, LOW);
+  delay(300);
+  digitalWrite(led, HIGH);
+  Serial.write("    PWM 26 (10%) motor is ON!");
+  analogWrite(motor,26);
+}
 
 // Turns LED OFF and writes to Serial
 void pwm0() {
@@ -440,16 +441,16 @@ void printCmdList() {
   //motor
   Serial.write("   motor:\r\n");
   Serial.write("      <o>    PWM 255 (100%)\r\n");
-  Serial.write("      <9>    PWM 230  (90%)\r\n");
-  Serial.write("      <8>    PWM 204  (80%)\r\n");
-  Serial.write("      <7>    PWM 179  (70%)\r\n");
-  Serial.write("      <6>    PWM 153  (60%)\r\n");
+//  Serial.write("      <9>    PWM 230  (90%)\r\n");
+//  Serial.write("      <8>    PWM 204  (80%)\r\n");
+//  Serial.write("      <7>    PWM 179  (70%)\r\n");
+//  Serial.write("      <6>    PWM 153  (60%)\r\n");
 //  Serial.write("      <5>    PWM 128  (50%)\r\n");
 //  Serial.write("      <4>    PWM 102  (40%)\r\n");
 //  Serial.write("      <3>    PWM  77  (30%)\r\n");
 //  Serial.write("      <2>    PWM  51  (20%)\r\n");
 //  Serial.write("      <1>    PWM  26  (10%)\r\n");  
-  Serial.write("      <0>    PWM   0   (0%)\r\n");  
+//  Serial.write("      <0>    PWM   0   (0%)\r\n");  
   
   Serial.write("      <c>    Command List\r\n"); 
   Serial.write("      <s>    run\r\n");
@@ -467,39 +468,62 @@ void printCmdList() {
 }
 
 
+void calibrate() {
+  while (1) {
+    doSerialCmd(getSerialCmd());
+    PID();
+  }
+}
 
 void run() {
   pwm100();
+  delay(500);
+  pwm80();
   while(!doSerialCmd(getSerialCmd())) {
-    calibrate();
+    
     PID();
   }
 }
 
 void PID() {
+  //threshold = cam.calibrate(expose, pixels); // position 1
   cam.scan(expose);
   cam.read(pixels);
+  threshold = cam.calibrate(expose, pixels); // position 2
   filter();
+  if (debug) {
+    cam.printLine(digital);
+  }
 
   int leftIdx = findEdge(0);
   int rightIdx = findEdge(numPixels-1);
+
+  while (leftIdx == END) {
+    
+  }
   
   process_var = (rightIdx-leftIdx)/2 + leftIdx;
   int error_pix = process_var-setpoint;
   error = atan2(error_pix,adj)*(180/3.141592);
-  dt = 1;//(temp = millis())-prev_millis;
-  //prev_millis = temp;
+  dt = 1;
 
-  if ((leftIdx == ERR) && (rightIdx != ERR)) {
-    servo.write(left);
-    return;
-  } else if ((leftIdx != ERR) && (rightIdx == ERR)) {
-    servo.write(right);
-    return;
-  } if (leftIdx == ERR && rightIdx == ERR ) {
-    return;
+  if (debug) {
+    Serial.print("offleft ");
+    Serial.println(offLeft);
+    Serial.print("offRight ");
+    Serial.println(offRight);
+  }
+  if (leftIdx == NOLINE || rightIdx == NOLINE) {
+    if (offLeft) {
+      servo.write(right);
+      return;
+    } else {
+      servo.write(left);
+      return;
+    }
   }
   servo.write(90 + controller.pid(error, dt));
+    
 }
 
 byte getAck() {
@@ -529,13 +553,3 @@ void printNewLn() {
   Serial.write("\r\n");
 }
 
-void calibrate() {
-  threshold = cam.calibrate(expose, pixels);
-  while (!doSerialCmd(getSerialCmd())) {
-    if (debug) {
-      filter();
-      cam.printLine(digital);
-    }
-    PID();
-  }
-}

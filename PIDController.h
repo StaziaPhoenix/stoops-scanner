@@ -18,12 +18,12 @@ class PIDController {
     float getD();
     int clamp(float pid);
   private:
-    float kP = 1; // .4 had good results on straight
+    float kP = .7; 
     float kI = 0;
-    float kD = 1;
+    float kD = 2.50;
     int prev_err = 0;
     float I = 0;
-    int outMax = 60;
+    byte outMax = 60;
 };
 
 #endif

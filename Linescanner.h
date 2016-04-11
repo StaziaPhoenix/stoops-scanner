@@ -1,9 +1,9 @@
 #include "Arduino.h"
 
 class Linescanner {
-    int CLK;
-    int sync;
-    int data;
+    byte CLK;
+    byte sync;
+    byte data;
   public:
 //    Linescanner();
     
@@ -13,6 +13,7 @@ class Linescanner {
     void read(int* pixels);
     int calibrate(int expose, int* pixels);
     void printLine(int* array);
+    void printLine(byte* array);
   private:
     byte findMax(const int* pixels);
     float average(int lowIdx, int highIdx, const int* pixels);

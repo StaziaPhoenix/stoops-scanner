@@ -34,8 +34,8 @@ void Linescanner::read(int* pixels) {
 }
 
 int Linescanner::calibrate(int expose, int* pixels) {
-  scan(expose);
-  read(pixels);
+//  scan(expose);
+//  read(pixels);
 
   byte maxIdx = findMax(pixels);
   float high_avg = average(maxIdx-5,maxIdx+5, pixels);
@@ -77,6 +77,21 @@ float Linescanner::average(int low_lowIdx, int low_highIdx,
 }
 
 void Linescanner::printLine(int array[]) {
+  if (array[64] > 1) {
+    for (int i=0;i<128;i++) {
+      Serial.print(array[i]);
+      Serial.print(" ");
+    }
+  } else {
+    for (int i=0;i<128;i++) {
+      Serial.print(array[i]);
+    }
+  }
+  
+  Serial.println();
+}
+
+void Linescanner::printLine(byte array[]) {
   if (array[64] > 1) {
     for (int i=0;i<128;i++) {
       Serial.print(array[i]);
