@@ -105,7 +105,6 @@ int findEdge(int startIdx) {
   
   if (startIdx < halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
-      Serial.println("leftEND");
       return END;
     }
     for (int i = startIdx; i < numPixels-4; i++) {
@@ -115,13 +114,12 @@ int findEdge(int startIdx) {
       }
     }
     // if no line
-    Serial.println("Could not find left edge");
+    //Serial.println("Could not find left edge");
     return NOLINE;
   }
 // ----------- Left above, right below -------------- //
   if (startIdx > halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
-      Serial.println("rightEND");
       return END;
     }
     for (int i = startIdx; i > 4; i--) {
@@ -131,7 +129,7 @@ int findEdge(int startIdx) {
       }
     }
     // if no line
-    Serial.println("Could not find right edge");
+    //Serial.println("Could not find right edge");
     return NOLINE;
   }
 }
@@ -493,9 +491,9 @@ void PID() {
   int leftIdx = findEdge(0);
   int rightIdx = findEdge(numPixels-1);
 
-//  if (leftIdx == END && rightIdx == END) {
-//    return;
-//  }
+  if (leftIdx == END && rightIdx == END) {
+    return;
+  }
   if (leftIdx == END) {
     servo.write(right);
     return;
@@ -517,11 +515,11 @@ void PID() {
   int error_pix = process_var-setpoint;
   error = atan2(error_pix,adj)*(180/3.141592);
 
-//  angle = 90 + controller.pid(error);
-//  if ( abs(angle-prev_angle) > 1 ) {
-//    servo.write(angle);
-//  }
-//  prev_angle = angle;
+  angle = 90 + controller.pid(error);
+  if ( abs(angle-prev_angle) > 1 ) {
+    servo.write(angle);
+  }
+  prev_angle = angle;
     servo.write(angle = 90 + controller.pid(error));
 }
 
