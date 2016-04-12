@@ -20,8 +20,8 @@
 #define numPixels 128
 
 byte debug = 0;
-byte offLeft = 0;
-byte offRight = 0;
+//byte offLeft = 0;
+//byte offRight = 0;
 
 // const unsigned int numPixels = 128;
 int pixels[numPixels];
@@ -32,16 +32,14 @@ PIDController controller;
 //int setpoint = 64;
 int process_var;
 float error;
-float dt;
-float prev_millis;
-//const int adj = 65;
-int _time;
+byte prev_angle = 0;
 
 //unsigned long utime;
 //int itime;
 
 const unsigned int expose = 7390;
 Servo servo;
+byte angle = 90;
 
 //int trigger = 2;
 int threshold;
@@ -69,7 +67,7 @@ void setup() {
   Serial.begin(9600);
 
   servo.attach(servoPin);
-  servo.write(90);
+  servo.write(angle);
 }
 
 void loop() {
@@ -107,13 +105,12 @@ int findEdge(int startIdx) {
   
   if (startIdx < halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
-      offLeft = 1; // if the line is falling off the left edge
+      Serial.println("leftEND");
       return END;
     }
     for (int i = startIdx; i < numPixels-4; i++) {
       if (digital[i] == 0 && digital[i+1] == 1 && digital[i+2] == 1 && 
           digital[i+3] == 1) {
-        offLeft = 0; // if there is a left edge
         return i+1;
       }
     }
@@ -124,13 +121,12 @@ int findEdge(int startIdx) {
 // ----------- Left above, right below -------------- //
   if (startIdx > halfLine) {
     if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
-      offRight = 1; // if line is falling off right edge
+      Serial.println("rightEND");
       return END;
     }
     for (int i = startIdx; i > 4; i--) {
       if (digital[i] == 0 && digital[i-1] == 1 && digital[i-2] == 1 && 
           digital[i-3] == 1) {
-        offRight = 0; // if there is a right edge
         return i-1;
       }
     }
@@ -486,7 +482,6 @@ void run() {
 }
 
 void PID() {
-  //threshold = cam.calibrate(expose, pixels); // position 1
   cam.scan(expose);
   cam.read(pixels);
   threshold = cam.calibrate(expose, pixels); // position 2
@@ -498,32 +493,36 @@ void PID() {
   int leftIdx = findEdge(0);
   int rightIdx = findEdge(numPixels-1);
 
-  while (leftIdx == END) {
-    
+//  if (leftIdx == END && rightIdx == END) {
+//    return;
+//  }
+  if (leftIdx == END) {
+    servo.write(right);
+    return;
+  } else if (rightIdx == END) {
+    servo.write(left);
+    return;
+  }
+  
+  if (leftIdx == NOLINE || (rightIdx-leftIdx) > 15) {
+    if (angle > 90) {
+      servo.write(left);
+    } else {
+      servo.write(right);
+    }
+    return;
   }
   
   process_var = (rightIdx-leftIdx)/2 + leftIdx;
   int error_pix = process_var-setpoint;
   error = atan2(error_pix,adj)*(180/3.141592);
-  dt = 1;
 
-  if (debug) {
-    Serial.print("offleft ");
-    Serial.println(offLeft);
-    Serial.print("offRight ");
-    Serial.println(offRight);
-  }
-  if (leftIdx == NOLINE || rightIdx == NOLINE) {
-    if (offLeft) {
-      servo.write(right);
-      return;
-    } else {
-      servo.write(left);
-      return;
-    }
-  }
-  servo.write(90 + controller.pid(error, dt));
-    
+//  angle = 90 + controller.pid(error);
+//  if ( abs(angle-prev_angle) > 1 ) {
+//    servo.write(angle);
+//  }
+//  prev_angle = angle;
+    servo.write(angle = 90 + controller.pid(error));
 }
 
 byte getAck() {

@@ -1,9 +1,9 @@
 #include "PIDController.h"
 
-int PIDController::pid(float err, float dt) {
+int PIDController::pid(float err) {
   float P = err*kP;
-  float I = I + err*dt*kI;
-  float D = (err-prev_err)/dt*kD;
+  float I = I + err*kI;
+  float D = (err-prev_err)*kD;
   prev_err = err;
   return clamp(P+I+D);
 }

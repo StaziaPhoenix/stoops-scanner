@@ -6,7 +6,7 @@
 class PIDController {
   public:
     PIDController() {}
-    int pid(float err, float dt);
+    int pid(float err);
     void incP();
     void incI();
     void incD();
@@ -20,7 +20,7 @@ class PIDController {
   private:
     float kP = .7; 
     float kI = 0;
-    float kD = 2.50;
+    float kD = 3.00;
     int prev_err = 0;
     float I = 0;
     byte outMax = 60;
