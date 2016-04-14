@@ -14,14 +14,12 @@
 #define center 90
 #define left 120
 #define right 60
-#define servoPin 6
+#define servoPin 9
 #define setpoint 64
 #define adj 65
 #define numPixels 128
 
 byte debug = 0;
-//byte offLeft = 0;
-//byte offRight = 0;
 
 // const unsigned int numPixels = 128;
 int pixels[numPixels];
@@ -80,10 +78,23 @@ void loop() {
 //  Serial.println(digitalRead(trigger));
 }
 
+byte getAck() {
+  Serial.write("\r\nPress <c> for command list\r\n");
+    Serial.write(">");
+    byte inByte = Serial.read();
 
-/* --------------------------------
- * HELPER FUNCTIONS 
- * ------------------------------- */
+    if ( inByte == 'c' ) {
+      Serial.write(inByte);
+      ack = 1;
+      printNewLn();
+      printCmdList();
+      printNewCmdLn();
+      return 1;
+    }   
+    return 0;
+}
+
+// ---------------- CONTROL ---------------- //
 
 /*
  * filters the analog data from Linescanner into digital HIGH/LOW, where
@@ -99,173 +110,127 @@ void filter() {
   }
 }
 
-
-int findEdge(int startIdx) {
-  static const int halfLine = numPixels/2;
-  
-  if (startIdx < halfLine) {
-    if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
-      return END;
-    }
-    for (int i = startIdx; i < numPixels-4; i++) {
-      if (digital[i] == 0 && digital[i+1] == 1 && digital[i+2] == 1 && 
-          digital[i+3] == 1) {
-        return i+1;
-      }
-    }
-    // if no line
-    //Serial.println("Could not find left edge");
-    return NOLINE;
-  }
-// ----------- Left above, right below -------------- //
-  if (startIdx > halfLine) {
-    if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
-      return END;
-    }
-    for (int i = startIdx; i > 4; i--) {
-      if (digital[i] == 0 && digital[i-1] == 1 && digital[i-2] == 1 && 
-          digital[i-3] == 1) {
-        return i-1;
-      }
-    }
-    // if no line
-    //Serial.println("Could not find right edge");
-    return NOLINE;
+void calibrate() {
+  while (1) {
+    doSerialCmd(getSerialCmd());
+    PID();
   }
 }
 
+void run() {
+  pwm100();
+  delay(500);
+  pwm80();
+  while(!doSerialCmd(getSerialCmd())) {
+    
+    PID();
+  }
+}
 
+float calcError(int process_var) {
+  int error_pix = process_var-setpoint;
+  return atan2(error_pix,adj)*(180/3.141592);
+}
 
-// Performs serial command based on user input
-bool doSerialCmd( byte cmd ) {
-  switch( cmd ) {
-    // Turn LED HIGH
-    case ('w'):
-      centerServo();
-      printNewCmdLn();
-      break;
-    case ('d'):
-      rightServo90();
-      printNewCmdLn();
-      break;
-    case ('a'):
-      leftServo90();
-      printNewCmdLn();
-      break;
-    case ('1'):
-      pwm10();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('2'):
-      pwm20();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('3'):
-      pwm30();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('4'):
-      pwm40();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('5'):
-      pwm50();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('6'):
-      pwm60();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('7'):
-      pwm70();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('8'):
-      pwm80();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('9'):
-      pwm90();
-      printNewCmdLn();
-      break;      
-    case ('o'):
-      pwm100();
-      printNewCmdLn();
-      break;      
-    case ('0'):
-      pwm0();
-      printNewCmdLn();
-      break;
-    // Display CMD List
-    case ('c'):
-      printCmdList();
-      printNewCmdLn();
-      break;
-    case ('s'):
-      run();
-      printNewCmdLn();
-      break;
-    case ('b'):
-      calibrate();
-      printNewCmdLn();
-      break;
-    case ('p'):
-      incPid('p');
-      printNewCmdLn();
-      break;
-    case ('l'):
-      decPid('p');
-      printNewCmdLn();
-      break;
-    case ('m'):
-      incPid('d');
-      printNewCmdLn();
-      break;
-    case ('n'):
-      decPid('d');
-      printNewCmdLn();
-      break;
-    case ('k'):
-      incPid('i');
-      printNewCmdLn();
-      break;
-    case ('j'):
-      decPid('i');
-      printNewCmdLn();
-      break;
-    case ('e'):
-      return true;
-    case ('g'):
-      debug = debug^1;
-      Serial.print("Debug is ");
-      Serial.println(debug);
-      printNewCmdLn();
-    case (NONE):
-      return false;
+bool checkCases( int leftIdx, int rightIdx) {
+  if (leftIdx == END && rightIdx == END) {
+    return true;
+  }
+  if (leftIdx == END) {
+    servo.write(right);
+    return true;
+  } else if (rightIdx == END) {
+    servo.write(left);
+    return true;
+  }
+  if (leftIdx == NOLINE || (rightIdx-leftIdx) > 15) {
+    if (angle > 90) {
+      servo.write(left);
+    } else {
+      servo.write(right);
+    }
+    return true;
   }
   return false;
 }
 
-// Prompts User for input serial command
-//    Returns serial command
-byte getSerialCmd() {
-  byte inByte;
-  if (Serial.available()) {
-    inByte = Serial.read();
-    Serial.write(inByte);
-    printNewLn();
-    return inByte;
+void adjustSpeed(float error) {
+  if (error < 30) {
+    pwm100();
+  } else if (error >= 30 && error < 60) {
+    pwm80();
   } else {
-    return NONE;
+    pwm60();
   }
+}
+
+int findRightEdge(int startIdx) {
+  if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
+    return END;
+  }
+  for (int i = startIdx; i > 4; i--) {
+    if (digital[i] == 0 && digital[i-1] == 1 && digital[i-2] == 1 && 
+        digital[i-3] == 1) {
+      return i-1;
+    }
+  }
+  // if no line
+  //Serial.println("Could not find right edge");
+  return NOLINE;
+}
+
+int findLeftEdge(int startIdx) {
+  if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
+    return END;
+  }
+  for (int i = startIdx; i < numPixels-4; i++) {
+    if (digital[i] == 0 && digital[i+1] == 1 && digital[i+2] == 1 && 
+        digital[i+3] == 1) {
+      return i+1;
+    }
+  }
+  // if no line
+  //Serial.println("Could not find left edge");
+  return NOLINE;
+}
+
+void PID() {
+  cam.scan(expose);
+  cam.read(pixels);
+  threshold = cam.calibrate(expose, pixels); // position 2
+  filter();
+  if (debug) {
+    cam.printLine(digital);
+  }
+
+  int leftIdx = findLeftEdge(0);
+  int rightIdx = findRightEdge(numPixels-1);
+
+  if (checkCases(leftIdx, rightIdx)) { return; }
+  
+  error = calcError((rightIdx-leftIdx)/2 + leftIdx);
+  adjustSpeed(error);
+
+  angle = 90 + controller.pid(error);
+  if ( abs(angle-prev_angle) > 1 ) {
+    servo.write(angle);
+    prev_angle = angle;
+  }
+}
+
+// ---------------- END CONTROL ---------------- //
+
+// ---------------- COMMANDS ---------------- //
+
+// Prints a new command line cursor
+void printNewCmdLn() {
+  printNewLn();
+  Serial.write(">");
+}
+
+// Prints a modified new line
+void printNewLn() {
+  Serial.write("\r\n");
 }
 
 void incPid(byte feed) {
@@ -461,92 +426,135 @@ void printCmdList() {
   Serial.write("\n");
 }
 
-
-void calibrate() {
-  while (1) {
-    doSerialCmd(getSerialCmd());
-    PID();
-  }
-}
-
-void run() {
-  pwm100();
-  delay(500);
-  pwm80();
-  while(!doSerialCmd(getSerialCmd())) {
-    
-    PID();
-  }
-}
-
-void PID() {
-  cam.scan(expose);
-  cam.read(pixels);
-  threshold = cam.calibrate(expose, pixels); // position 2
-  filter();
-  if (debug) {
-    cam.printLine(digital);
-  }
-
-  int leftIdx = findEdge(0);
-  int rightIdx = findEdge(numPixels-1);
-
-  if (leftIdx == END && rightIdx == END) {
-    return;
-  }
-  if (leftIdx == END) {
-    servo.write(right);
-    return;
-  } else if (rightIdx == END) {
-    servo.write(left);
-    return;
-  }
-  
-  if (leftIdx == NOLINE || (rightIdx-leftIdx) > 15) {
-    if (angle > 90) {
-      servo.write(left);
-    } else {
-      servo.write(right);
-    }
-    return;
-  }
-  
-  process_var = (rightIdx-leftIdx)/2 + leftIdx;
-  int error_pix = process_var-setpoint;
-  error = atan2(error_pix,adj)*(180/3.141592);
-
-  angle = 90 + controller.pid(error);
-  if ( abs(angle-prev_angle) > 1 ) {
-    servo.write(angle);
-  }
-  prev_angle = angle;
-    servo.write(angle = 90 + controller.pid(error));
-}
-
-byte getAck() {
-  Serial.write("\r\nPress <c> for command list\r\n");
-    Serial.write(">");
-    byte inByte = Serial.read();
-
-    if ( inByte == 'c' ) {
-      Serial.write(inByte);
-      ack = 1;
-      printNewLn();
+// Performs serial command based on user input
+bool doSerialCmd( byte cmd ) {
+  switch( cmd ) {
+    // Turn LED HIGH
+    case ('w'):
+      centerServo();
+      printNewCmdLn();
+      break;
+    case ('d'):
+      rightServo90();
+      printNewCmdLn();
+      break;
+    case ('a'):
+      leftServo90();
+      printNewCmdLn();
+      break;
+    case ('1'):
+      pwm10();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('2'):
+      pwm20();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('3'):
+      pwm30();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('4'):
+      pwm40();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('5'):
+      pwm50();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('6'):
+      pwm60();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('7'):
+      pwm70();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('8'):
+      pwm80();
+      printNewCmdLn();
+      break;
+    // Turn LED LOW
+    case ('9'):
+      pwm90();
+      printNewCmdLn();
+      break;      
+    case ('o'):
+      pwm100();
+      printNewCmdLn();
+      break;      
+    case ('0'):
+      pwm0();
+      printNewCmdLn();
+      break;
+    // Display CMD List
+    case ('c'):
       printCmdList();
       printNewCmdLn();
-      return 1;
-    }   
-    return 0;
+      break;
+    case ('s'):
+      run();
+      printNewCmdLn();
+      break;
+    case ('b'):
+      calibrate();
+      printNewCmdLn();
+      break;
+    case ('p'):
+      incPid('p');
+      printNewCmdLn();
+      break;
+    case ('l'):
+      decPid('p');
+      printNewCmdLn();
+      break;
+    case ('m'):
+      incPid('d');
+      printNewCmdLn();
+      break;
+    case ('n'):
+      decPid('d');
+      printNewCmdLn();
+      break;
+    case ('k'):
+      incPid('i');
+      printNewCmdLn();
+      break;
+    case ('j'):
+      decPid('i');
+      printNewCmdLn();
+      break;
+    case ('e'):
+      return true;
+    case ('g'):
+      debug = debug^1;
+      Serial.print("Debug is ");
+      Serial.println(debug);
+      printNewCmdLn();
+    case (NONE):
+      return false;
+  }
+  return false;
 }
 
-// Prints a new command line cursor
-void printNewCmdLn() {
-  printNewLn();
-  Serial.write(">");
-}
-
-// Prints a modified new line
-void printNewLn() {
-  Serial.write("\r\n");
+// Prompts User for input serial command
+//    Returns serial command
+byte getSerialCmd() {
+  byte inByte;
+  if (Serial.available()) {
+    inByte = Serial.read();
+    Serial.write(inByte);
+    printNewLn();
+    return inByte;
+  } else {
+    return NONE;
+  }
 }
 

@@ -2,7 +2,7 @@
 
 int PIDController::pid(float err) {
   float P = err*kP;
-  float I = I + err*kI;
+  I = I + err*kI;
   float D = (err-prev_err)*kD;
   prev_err = err;
   return clamp(P+I+D);
@@ -41,15 +41,15 @@ void PIDController::decD() {
   kD -= 0.05;
 }
 
-float PIDController::getP() {
+float PIDController::getP() const {
   return kP;
 }
 
-float PIDController::getI() {
+float PIDController::getI() const {
   return kI;
 }
 
-float PIDController::getD() {
+float PIDController::getD() const {
   return kD;
 }
 

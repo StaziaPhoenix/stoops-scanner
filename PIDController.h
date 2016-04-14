@@ -13,9 +13,9 @@ class PIDController {
     void decP();
     void decI();
     void decD();
-    float getP();
-    float getI();
-    float getD();
+    float getP() const;
+    float getI() const;
+    float getD() const;
     int clamp(float pid);
   private:
     float kP = .7; 
@@ -23,7 +23,7 @@ class PIDController {
     float kD = 3.00;
     int prev_err = 0;
     float I = 0;
-    byte outMax = 60;
+    const byte outMax = 60;
 };
 
 #endif
