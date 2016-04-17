@@ -18,6 +18,8 @@
 #define setpoint 64
 #define adj 65
 #define numPixels 128
+#define leftThresh 56
+#define rightThresh 72
 
 byte debug = 0;
 byte go = 0;
@@ -106,16 +108,16 @@ void filter() {
 }
 
 void calibrate() {
+  go = 0;
   while (1) {
     doSerialCmd(getSerialCmd());
-    go = 0;
     PID();
   }
 }
 
 void run() {
+  go = 1;
   while(!doSerialCmd(getSerialCmd())) {
-    go = 1;
     PID();
   }
 }
@@ -126,7 +128,15 @@ float calcError(int process_var) {
 }
 
 bool checkCases( int leftIdx, int rightIdx) {
-  if (leftIdx == END && rightIdx == END) {
+  if (leftIdx == NOLINE || (rightIdx-leftIdx) > 80) {
+    if (angle > 90) {
+      servo.write(left);
+    } else {
+      servo.write(right);
+    }
+    return true;
+  }
+  if ( rightIdx-leftIdx > 15 || (leftIdx == END && rightIdx == END)) {
     return true;
   }
   if (leftIdx == END) {
@@ -136,24 +146,16 @@ bool checkCases( int leftIdx, int rightIdx) {
     servo.write(left);
     return true;
   }
-  if (leftIdx == NOLINE || (rightIdx-leftIdx) > 15) {
-    if (angle > 90) {
-      servo.write(left);
-    } else {
-      servo.write(right);
-    }
-    return true;
-  }
   return false;
 }
 
-void adjustSpeed(float error) {
+void adjustSpeed(int error) {
   if (error < 30) {
-    pwm100();
+    analogWrite(motor,153);
   } else if (error >= 30 && error < 60) {
-    pwm80();
+    analogWrite(motor,128);
   } else {
-    pwm60();
+    analogWrite(motor,102);
   }
 }
 
@@ -202,13 +204,14 @@ void PID() {
   if (checkCases(leftIdx, rightIdx)) { return; }
   
   error = calcError((rightIdx-leftIdx)/2 + leftIdx);
-  if (go) { adjustSpeed(error); }
 
   angle = 90 + controller.pid(error);
-  if ( abs(angle-prev_angle) > 1 ) {
+  if (go) { adjustSpeed(angle-prev_angle); }
+  // if ( abs(angle-prev_angle) > 1 ) {
     servo.write(angle);
-    prev_angle = angle;
-  }
+    //prev_angle = angle;
+  //}
+  prev_angle = angle;
 }
 
 // ---------------- END CONTROL ---------------- //
@@ -324,7 +327,6 @@ void pwm60() {
   delay(300);
   digitalWrite(led, HIGH);
   Serial.write("    PWM 153 (60%) motor is ON!");
-  analogWrite(motor,153);
 }
 
 // Turns LED OFF and writes to Serial
