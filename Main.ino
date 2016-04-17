@@ -20,20 +20,15 @@
 #define numPixels 128
 
 byte debug = 0;
+byte go = 0;
 
-// const unsigned int numPixels = 128;
 int pixels[numPixels];
 byte digital[numPixels];
 
 /* PID info */
 PIDController controller;
-//int setpoint = 64;
-int process_var;
 float error;
 byte prev_angle = 0;
-
-//unsigned long utime;
-//int itime;
 
 const unsigned int expose = 7390;
 Servo servo;
@@ -113,16 +108,14 @@ void filter() {
 void calibrate() {
   while (1) {
     doSerialCmd(getSerialCmd());
+    go = 0;
     PID();
   }
 }
 
 void run() {
-  pwm100();
-  delay(500);
-  pwm80();
   while(!doSerialCmd(getSerialCmd())) {
-    
+    go = 1;
     PID();
   }
 }
@@ -209,7 +202,7 @@ void PID() {
   if (checkCases(leftIdx, rightIdx)) { return; }
   
   error = calcError((rightIdx-leftIdx)/2 + leftIdx);
-  adjustSpeed(error);
+  if (go) { adjustSpeed(error); }
 
   angle = 90 + controller.pid(error);
   if ( abs(angle-prev_angle) > 1 ) {
@@ -381,6 +374,7 @@ void pwm10() {
 
 // Turns LED OFF and writes to Serial
 void pwm0() {
+  go = 0;
   digitalWrite(led, LOW);
   Serial.write("    PWM 0 (0%) motor is OFF!");
   analogWrite(motor,0);
