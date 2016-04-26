@@ -18,10 +18,10 @@ class PIDController {
     float getD() const;
     int clamp(float pid);
   private:
-    float kP = .7; 
+    float kP = .55; 
     float kI = 0;
     float kD = 2.80;
-    int prev_err = 0;
+    int prev_err = 0;      
     float I = 0;
     const byte outMax = 60;
 };

@@ -6,23 +6,25 @@
 #define END 129
 #define NONE 130
 #define NOLINE 131
-#define sync 12
-#define CLK 11
-#define data A0
-#define motor 3
-#define led 13
 #define center 90
-#define left 120
-#define right 60
-#define servoPin 9
+#define left 150
+#define right 30
 #define setpoint 64
 #define adj 65
 #define numPixels 128
 #define leftThresh 56
 #define rightThresh 72
 
+#define sync 12
+#define CLK 11
+#define data A0
+#define motor 3
+#define led 13
+#define servoPin 9
+
 byte debug = 0;
 byte go = 0;
+byte lineWidth;
 
 int pixels[numPixels];
 byte digital[numPixels];
@@ -65,16 +67,6 @@ void setup() {
   servo.write(angle);
 }
 
-void loop() {
-  while (!ack) {
-    ack = getAck();    
-    delay(3000);
-  }
-
-  doSerialCmd(getSerialCmd());
-//  Serial.println(digitalRead(trigger));
-}
-
 byte getAck() {
   Serial.write("\r\nPress <c> for command list\r\n");
     Serial.write(">");
@@ -90,6 +82,18 @@ byte getAck() {
     }   
     return 0;
 }
+
+void loop() {
+  while (!ack) {
+    ack = getAck();    
+    delay(3000);
+  }
+
+  doSerialCmd(getSerialCmd());
+//  Serial.println(digitalRead(trigger));
+}
+
+
 
 // ---------------- CONTROL ---------------- //
 
@@ -107,15 +111,35 @@ void filter() {
   }
 }
 
+void getLine() {
+  cam.scan(expose);
+  cam.read(pixels);
+  threshold = cam.calibrate(expose, pixels); // position 2
+  filter();
+  if (debug) {
+    cam.printLine(digital);
+  }
+}
+
+int setLineWidth() {
+  getLine();
+
+  int leftIdx = findLeftEdge(0);
+  int rightIdx = findRightEdge(numPixels-1);
+
+  return rightIdx - leftIdx;
+}
+
 void calibrate() {
+  lineWidth = setLineWidth();
   go = 0;
-  while (1) {
-    doSerialCmd(getSerialCmd());
+  while (!doSerialCmd(getSerialCmd())) {
     PID();
   }
 }
 
 void run() {
+  lineWidth = setLineWidth();
   go = 1;
   while(!doSerialCmd(getSerialCmd())) {
     PID();
@@ -128,6 +152,7 @@ float calcError(int process_var) {
 }
 
 bool checkCases( int leftIdx, int rightIdx) {
+  // lost sight of the line, stay turning in previous direction
   if (leftIdx == NOLINE || (rightIdx-leftIdx) > 80) {
     if (angle > 90) {
       servo.write(left);
@@ -136,27 +161,41 @@ bool checkCases( int leftIdx, int rightIdx) {
     }
     return true;
   }
-  if ( rightIdx-leftIdx > 15 || (leftIdx == END && rightIdx == END)) {
+
+  // intersection, stay true
+  if ( (rightIdx-leftIdx) > (lineWidth+2) || (leftIdx == END && rightIdx == END)) {
     return true;
   }
-  if (leftIdx == END) {
-    servo.write(right);
-    return true;
-  } else if (rightIdx == END) {
-    servo.write(left);
-    return true;
-  }
+
+  // staircase, turn less severely so you don't lose the line
+//  if (leftIdx == END) {
+//    servo.write(right*2);
+//    return true;
+//  } else if (rightIdx == END) {
+//    servo.write(left - right);
+//    return true;
+//  }
+
+  // if none of these, adjust according to PID
   return false;
 }
 
-void adjustSpeed(int error) {
-  if (error < 30) {
-    analogWrite(motor,153);
-  } else if (error >= 30 && error < 60) {
-    analogWrite(motor,128);
+void adjustSpeed(int derror) {
+  if (derror < 0 || (abs(derror) < 25)) {
+    analogWrite(motor,128); // 50%
   } else {
-    analogWrite(motor,102);
+    analogWrite(motor,102); // 40%
   }
+  
+//  if ((error < 30) || (error < prev_error)) {
+//    analogWrite(motor,128); // 50%
+//    //analogWrite(motor,179);
+//    //analogWrite(motor,153);
+//  } else if (error >= 30 && error < 60) {
+//    analogWrite(motor,102); // 40%
+//  } else {
+//    analogWrite(motor,77); // 30%
+//  }
 }
 
 int findRightEdge(int startIdx) {
@@ -190,13 +229,7 @@ int findLeftEdge(int startIdx) {
 }
 
 void PID() {
-  cam.scan(expose);
-  cam.read(pixels);
-  threshold = cam.calibrate(expose, pixels); // position 2
-  filter();
-  if (debug) {
-    cam.printLine(digital);
-  }
+  getLine();
 
   int leftIdx = findLeftEdge(0);
   int rightIdx = findRightEdge(numPixels-1);
@@ -218,15 +251,16 @@ void PID() {
 
 // ---------------- COMMANDS ---------------- //
 
+// Prints a modified new line
+void printNewLn() {
+  Serial.write("\r\n");
+}
+
+
 // Prints a new command line cursor
 void printNewCmdLn() {
   printNewLn();
   Serial.write(">");
-}
-
-// Prints a modified new line
-void printNewLn() {
-  Serial.write("\r\n");
 }
 
 void incPid(byte feed) {
