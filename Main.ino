@@ -578,11 +578,11 @@ bool doSerialCmd( byte cmd ) {
       calibrate();
       printNewCmdLn();
       break;
-    case ('p'):
+    case ('l'):
       incPid('p');
       printNewCmdLn();
       break;
-    case ('l'):
+    case ('k'):
       decPid('p');
       printNewCmdLn();
       break;
