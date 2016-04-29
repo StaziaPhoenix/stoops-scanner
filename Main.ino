@@ -12,8 +12,8 @@
 #define setpoint 64
 #define adj 65
 #define numPixels 128
-#define leftThresh 56
-#define rightThresh 72
+#define leftThresh 54
+#define rightThresh 74
 
 #define sync 12
 #define CLK 11
@@ -41,6 +41,7 @@ byte angle = 90;
 
 //int trigger = 2;
 int threshold;
+int speedy = 0;
 
 // Byte (one character) read in from Virtual Serial COMM (Bluetooth)
 byte inByte = 0;
@@ -67,7 +68,9 @@ void setup() {
   servo.attach(servoPin);
   servo.write(angle);
 
-  setPwmFrequency(motor, 64);
+  lineWidth = setLineWidth();
+  Serial.print("LineWidth = ");
+  Serial.println(lineWidth);
 }
 
 byte getAck() {
@@ -134,7 +137,7 @@ int setLineWidth() {
 }
 
 void calibrate() {
-  lineWidth = setLineWidth();
+  
   go = 0;
   while (!doSerialCmd(getSerialCmd())) {
     PID();
@@ -142,7 +145,6 @@ void calibrate() {
 }
 
 void run() {
-  lineWidth = setLineWidth();
   go = 1;
   while(!doSerialCmd(getSerialCmd())) {
     PID();
@@ -155,10 +157,16 @@ float calcError(int process_var) {
 }
 
 bool checkCases( int leftIdx, int rightIdx) {
+  // intersection, do nothing
+//  if (leftIdx == END && rightIdx == END) {
+//    return true;
+//  }
+  
   // lost sight of the line, stay turning in previous direction
   if (leftIdx == NOLINE || (rightIdx-leftIdx) > 80) {
     if (angle > 90) {
       servo.write(left);
+      //Serial.println("I am running left!");
     } else {
       servo.write(right);
     }
@@ -166,18 +174,20 @@ bool checkCases( int leftIdx, int rightIdx) {
   }
 
   // intersection, stay true
-  if ( (rightIdx-leftIdx) > (lineWidth+2) || (leftIdx == END && rightIdx == END)) {
-    return true;
-  }
+//  if ( (rightIdx-leftIdx) > (lineWidth+2) ) {
+//    return true;
+//  }
 
-//   staircase, turn less severely so you don't lose the line
-  if (leftIdx == END) {
-    servo.write(right*2);
-    return true;
-  } else if (rightIdx == END) {
-    servo.write(left - right);
-    return true;
-  }
+////   staircase, turn less severely so you don't lose the line
+//  if (leftIdx > leftThresh && leftIdx < rightThresh &&
+//      rightIdx > rightThresh) {
+//    servo.write(angle = angle + 1);
+//    return true;
+//  } else if (leftIdx < leftThresh && 
+//             rightIdx < rightThresh && rightIdx > leftThresh) {
+//    servo.write(angle = angle - 1);
+//    return true;
+//  }
 
   // if none of these, adjust according to PID
   return false;
@@ -190,21 +200,12 @@ void adjustSpeed(int derror) {
     //analogWrite(motor,51); // 20%
     analogWrite(motor,0);
   }
-  
-//  if ((error < 30) || (error < prev_error)) {
-//    analogWrite(motor,128); // 50%
-//    //analogWrite(motor,179);
-//    //analogWrite(motor,153);
-//  } else if (error >= 30 && error < 60) {
-//    analogWrite(motor,102); // 40%
-//  } else {
-//    analogWrite(motor,77); // 30%
-//  }
 }
 
 int findRightEdge(int startIdx) {
   if (digital[startIdx] == 1 && digital[startIdx-1]== 1) {
-    return END;
+    //Serial.println("At end end of right");
+    return 128;
   }
   for (int i = startIdx; i > 4; i--) {
     if (digital[i] == 0 && digital[i-1] == 1 && digital[i-2] == 1 && 
@@ -219,7 +220,8 @@ int findRightEdge(int startIdx) {
 
 int findLeftEdge(int startIdx) {
   if (digital[startIdx] == 1 && digital[startIdx+1] == 1) {
-    return END;
+    //Serial.println("At end end of left");
+    return 0;
   }
   for (int i = startIdx; i < numPixels-4; i++) {
     if (digital[i] == 0 && digital[i+1] == 1 && digital[i+2] == 1 && 
@@ -243,11 +245,12 @@ void PID() {
   error = calcError((rightIdx-leftIdx)/2 + leftIdx);
 
   angle = 90 + controller.pid(error);
+  if (debug) {
+     Serial.print("Angle  = ");
+     Serial.println(angle);
+  }
   if (go) { adjustSpeed(angle-prev_angle); }
-  // if ( abs(angle-prev_angle) > 1 ) {
     servo.write(angle);
-    //prev_angle = angle;
-  //}
   prev_angle = angle;
 }
 
@@ -323,66 +326,66 @@ void rightServo90() {
   servo.write(right);
 }
 
-// Turns LED ON and writes to Serial
+//// Turns LED ON and writes to Serial
 void pwm100() {
   digitalWrite(led, LOW);
   delay(300);
   digitalWrite(led, HIGH);
-  Serial.write("    PWM 255 (100%) motor is ON!");
-  analogWrite(motor,255);
+  Serial.write("    motor is ON!");
+  analogWrite(motor,speedy);
 }
-
-// Turns LED OFF and writes to Serial
-void pwm90() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 230 (90%) motor is ON!");
-  analogWrite(motor,230);
-}
-
-// Turns LED OFF and writes to Serial
-void pwm80() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 204 (80%) motor is ON!");
-  analogWrite(motor,204);
-}
-
-// Turns LED OFF and writes to Serial
-void pwm70() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 179 (70%) motor is ON!");
-  analogWrite(motor,179);
-}
-
-// Turns LED OFF and writes to Serial
-void pwm60() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 153 (60%) motor is ON!");
-}
-
-// Turns LED OFF and writes to Serial
-void pwm50() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 128 (50%) motor is ON!");
-  analogWrite(motor,128);
-}
+//
+//// Turns LED OFF and writes to Serial
+//void pwm90() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 230 (90%) motor is ON!");
+//  analogWrite(motor,230);
+//}
+//
+//// Turns LED OFF and writes to Serial
+//void pwm80() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 204 (80%) motor is ON!");
+//  analogWrite(motor,204);
+//}
+//
+//// Turns LED OFF and writes to Serial
+//void pwm70() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 179 (70%) motor is ON!");
+//  analogWrite(motor,179);
+//}
+//
+//// Turns LED OFF and writes to Serial
+//void pwm60() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 153 (60%) motor is ON!");
+//}
+//
+//// Turns LED OFF and writes to Serial
+//void pwm50() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 128 (50%) motor is ON!");
+//  analogWrite(motor,128);
+//}
 
 //// Turns LED OFF and writes to Serial
 void pwm40() {
   digitalWrite(led, LOW);
   delay(300);
   digitalWrite(led, HIGH);
-  Serial.write("    PWM 102 (40%) motor is ON!");
-  analogWrite(motor,102);
+  Serial.write("    PWM 102 (40%)");
+  speedy = 102;
 }
 
 // Turns LED OFF and writes to Serial
@@ -390,8 +393,8 @@ void pwm30() {
   digitalWrite(led, LOW);
   delay(300);
   digitalWrite(led, HIGH);
-  Serial.write("    PWM 77 (30%) motor is ON!");
-  analogWrite(motor,77);
+  Serial.write("    PWM 77 (30%)");
+  speedy = 77;
 }
 
 // Turns LED OFF and writes to Serial
@@ -399,8 +402,8 @@ void pwm20() {
   digitalWrite(led, LOW);
   delay(300);
   digitalWrite(led, HIGH);
-  Serial.write("    PWM 51 (20%) motor is ON!");
-  analogWrite(motor,51);
+  Serial.write("    PWM 51 (20%)");
+  speedy = 51;
 }
 
 // Turns LED OFF and writes to Serial
@@ -408,8 +411,8 @@ void pwm10() {
   digitalWrite(led, LOW);
   delay(300);
   digitalWrite(led, HIGH);
-  Serial.write("    PWM 26 (10%) motor is ON!");
-  analogWrite(motor,26);
+  Serial.write("    PWM 26 (10%)");
+  speedy = 26;
 }
 
 // Turns LED OFF and writes to Serial
@@ -417,39 +420,7 @@ void pwm0() {
   go = 0;
   digitalWrite(led, LOW);
   Serial.write("    PWM 0 (0%) motor is OFF!");
-  analogWrite(motor,0);
-}
-
-void setPwmFrequency(int pin, int divisor) {
-  byte mode;
-  if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
-    switch(divisor) {
-      case 1: mode = 0x01; break;
-      case 8: mode = 0x02; break;
-      case 64: mode = 0x03; break;
-      case 256: mode = 0x04; break;
-      case 1024: mode = 0x05; break;
-      default: return;
-    }
-    if(pin == 5 || pin == 6) {
-      TCCR0B = TCCR0B & 0b11111000 | mode;
-    } else {
-      TCCR1B = TCCR1B & 0b11111000 | mode;
-    }
-  } else if(pin == 3 || pin == 11) {
-    switch(divisor) {
-      case 1: mode = 0x01; break;
-      case 8: mode = 0x02; break;
-      case 32: mode = 0x03; break;
-      case 64: mode = 0x04; break;
-      case 128: mode = 0x05; break;
-      case 256: mode = 0x06; break;
-      case 1024: mode = 0x7; break;
-      default: return;
-    }
-    TCCR2B = TCCR2B & 0b11111000 | mode;
-  }
-  Serial.println(divisor);
+  analogWrite(motor,(speedy = 0));
 }
 
 // Prints the command list
@@ -481,12 +452,12 @@ void printCmdList() {
   Serial.write("      <s>    run\r\n");
   Serial.write("      <b>    Calibrate\r\n");
   
-  Serial.write("      <p>    Increase p by 10%\r\n");
-  Serial.write("      <l>    Decrease p by 10%\r\n");
+  Serial.write("      <l>    Increase p by 10%\r\n");
+  Serial.write("      <k>    Decrease p by 10%\r\n");
   Serial.write("      <m>    Inc d by 10%\r\n");
   Serial.write("      <n>    Dec d by 10%\r\n");
-//  Serial.write("      <k>    Inc i by 10%\r\n");
-//  Serial.write("      <j>    Dec i by 10%\r\n");
+  Serial.write("      <x>    Inc speed by 1\r\n");
+  Serial.write("      <z>    Dec speed by 1\r\n");
   Serial.write("      <h>    inc motor PWM frequency\r\n");
   Serial.write("      <g>    Toggle debug statements\r\n");
 
@@ -497,10 +468,10 @@ void printCmdList() {
 bool doSerialCmd( byte cmd ) {
   switch( cmd ) {
     // Turn LED HIGH
-    case('h'):
-      setPwmFrequency(motor, (mdivisor = mdivisor*2));
-      printNewCmdLn();
-      break;
+//    case('h'):
+//      setPwmFrequency(motor, (mdivisor = mdivisor*2));
+//      printNewCmdLn();
+//      break;
     case ('w'):
       centerServo();
       printNewCmdLn();
@@ -533,30 +504,30 @@ bool doSerialCmd( byte cmd ) {
       printNewCmdLn();
       break;
     // Turn LED LOW
-    case ('5'):
-      pwm50();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('6'):
-      pwm60();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('7'):
-      pwm70();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('8'):
-      pwm80();
-      printNewCmdLn();
-      break;
-    // Turn LED LOW
-    case ('9'):
-      pwm90();
-      printNewCmdLn();
-      break;      
+//    case ('5'):
+//      pwm50();
+//      printNewCmdLn();
+//      break;
+//    // Turn LED LOW
+//    case ('6'):
+//      pwm60();
+//      printNewCmdLn();
+//      break;
+//    // Turn LED LOW
+//    case ('7'):
+//      pwm70();
+//      printNewCmdLn();
+//      break;
+//    // Turn LED LOW
+//    case ('8'):
+//      pwm80();
+//      printNewCmdLn();
+//      break;
+//    // Turn LED LOW
+//    case ('9'):
+//      pwm90();
+//      printNewCmdLn();
+//      break;      
     case ('o'):
       pwm100();
       printNewCmdLn();
@@ -594,14 +565,22 @@ bool doSerialCmd( byte cmd ) {
       decPid('d');
       printNewCmdLn();
       break;
-//    case ('k'):
-//      incPid('i');
-//      printNewCmdLn();
-//      break;
-//    case ('j'):
-//      decPid('i');
-//      printNewCmdLn();
-//      break;
+    case ('x'):
+      if (speedy < 102) {
+        speedy = speedy + 1;
+      }
+      Serial.print("Speed is ");
+      Serial.println(speedy);
+      printNewCmdLn();
+      break;
+    case ('z'):
+      if (speedy > 0) {
+        speedy = speedy - 1;
+      }
+      Serial.print("Speed is ");
+      Serial.println(speedy);
+      printNewCmdLn();
+      break;
     case ('e'):
       return true;
     case ('g'):
