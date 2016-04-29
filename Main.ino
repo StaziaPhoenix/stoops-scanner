@@ -25,6 +25,7 @@
 byte debug = 0;
 byte go = 0;
 byte lineWidth;
+int mdivisor = 1;
 
 int pixels[numPixels];
 byte digital[numPixels];
@@ -65,6 +66,8 @@ void setup() {
 
   servo.attach(servoPin);
   servo.write(angle);
+
+  setPwmFrequency(motor, 64);
 }
 
 byte getAck() {
@@ -167,24 +170,25 @@ bool checkCases( int leftIdx, int rightIdx) {
     return true;
   }
 
-  // staircase, turn less severely so you don't lose the line
-//  if (leftIdx == END) {
-//    servo.write(right*2);
-//    return true;
-//  } else if (rightIdx == END) {
-//    servo.write(left - right);
-//    return true;
-//  }
+//   staircase, turn less severely so you don't lose the line
+  if (leftIdx == END) {
+    servo.write(right*2);
+    return true;
+  } else if (rightIdx == END) {
+    servo.write(left - right);
+    return true;
+  }
 
   // if none of these, adjust according to PID
   return false;
 }
 
 void adjustSpeed(int derror) {
-  if (derror < 0 || (abs(derror) < 25)) {
-    analogWrite(motor,128); // 50%
+  if ((abs(derror) < 25)) {
+    analogWrite(motor,77); // 30%
   } else {
-    analogWrite(motor,102); // 40%
+    //analogWrite(motor,51); // 20%
+    analogWrite(motor,0);
   }
   
 //  if ((error < 30) || (error < prev_error)) {
@@ -416,6 +420,38 @@ void pwm0() {
   analogWrite(motor,0);
 }
 
+void setPwmFrequency(int pin, int divisor) {
+  byte mode;
+  if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
+    switch(divisor) {
+      case 1: mode = 0x01; break;
+      case 8: mode = 0x02; break;
+      case 64: mode = 0x03; break;
+      case 256: mode = 0x04; break;
+      case 1024: mode = 0x05; break;
+      default: return;
+    }
+    if(pin == 5 || pin == 6) {
+      TCCR0B = TCCR0B & 0b11111000 | mode;
+    } else {
+      TCCR1B = TCCR1B & 0b11111000 | mode;
+    }
+  } else if(pin == 3 || pin == 11) {
+    switch(divisor) {
+      case 1: mode = 0x01; break;
+      case 8: mode = 0x02; break;
+      case 32: mode = 0x03; break;
+      case 64: mode = 0x04; break;
+      case 128: mode = 0x05; break;
+      case 256: mode = 0x06; break;
+      case 1024: mode = 0x7; break;
+      default: return;
+    }
+    TCCR2B = TCCR2B & 0b11111000 | mode;
+  }
+  Serial.println(divisor);
+}
+
 // Prints the command list
 void printCmdList() {
   Serial.write("COMMANDS:\r\n");
@@ -449,8 +485,9 @@ void printCmdList() {
   Serial.write("      <l>    Decrease p by 10%\r\n");
   Serial.write("      <m>    Inc d by 10%\r\n");
   Serial.write("      <n>    Dec d by 10%\r\n");
-  Serial.write("      <k>    Inc i by 10%\r\n");
-  Serial.write("      <j>    Dec i by 10%\r\n");
+//  Serial.write("      <k>    Inc i by 10%\r\n");
+//  Serial.write("      <j>    Dec i by 10%\r\n");
+  Serial.write("      <h>    inc motor PWM frequency\r\n");
   Serial.write("      <g>    Toggle debug statements\r\n");
 
   Serial.write("\n");
@@ -460,6 +497,10 @@ void printCmdList() {
 bool doSerialCmd( byte cmd ) {
   switch( cmd ) {
     // Turn LED HIGH
+    case('h'):
+      setPwmFrequency(motor, (mdivisor = mdivisor*2));
+      printNewCmdLn();
+      break;
     case ('w'):
       centerServo();
       printNewCmdLn();
@@ -553,14 +594,14 @@ bool doSerialCmd( byte cmd ) {
       decPid('d');
       printNewCmdLn();
       break;
-    case ('k'):
-      incPid('i');
-      printNewCmdLn();
-      break;
-    case ('j'):
-      decPid('i');
-      printNewCmdLn();
-      break;
+//    case ('k'):
+//      incPid('i');
+//      printNewCmdLn();
+//      break;
+//    case ('j'):
+//      decPid('i');
+//      printNewCmdLn();
+//      break;
     case ('e'):
       return true;
     case ('g'):
