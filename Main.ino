@@ -24,8 +24,7 @@
 
 byte debug = 0;
 byte go = 0;
-byte lineWidth;
-int mdivisor = 1;
+byte lineWidth = 11;
 
 int pixels[numPixels];
 byte digital[numPixels];
@@ -67,8 +66,7 @@ void setup() {
 
   servo.attach(servoPin);
   servo.write(angle);
-
-  lineWidth = setLineWidth();
+  
   Serial.print("LineWidth = ");
   Serial.println(lineWidth);
 }
@@ -127,14 +125,14 @@ void getLine() {
   }
 }
 
-int setLineWidth() {
-  getLine();
-
-  int leftIdx = findLeftEdge(0);
-  int rightIdx = findRightEdge(numPixels-1);
-
-  return rightIdx - leftIdx;
-}
+//int setLineWidth() {
+//  getLine();
+//
+//  int leftIdx = findLeftEdge(0);
+//  int rightIdx = findRightEdge(numPixels-1);
+//
+//  return rightIdx - leftIdx;
+//}
 
 void calibrate() {
   
@@ -157,38 +155,37 @@ float calcError(int process_var) {
 }
 
 bool checkCases( int leftIdx, int rightIdx) {
-  // intersection, do nothing
-//  if (leftIdx == END && rightIdx == END) {
-//    return true;
-//  }
+  if (debug) {
+    Serial.println("leftIdx, rightIdx = ");
+    Serial.println(leftIdx);
+    Serial.println(rightIdx);
+    Serial.println(rightIdx-leftIdx);
+  }
   
   // lost sight of the line, stay turning in previous direction
   if (leftIdx == NOLINE || (rightIdx-leftIdx) > 80) {
     if (angle > 90) {
       servo.write(left);
-      //Serial.println("I am running left!");
+      if (debug) {
+        Serial.println("I am running left!");
+      }
     } else {
       servo.write(right);
+      if (debug) {
+        Serial.println("I am running right!");
+      }
     }
     return true;
   }
 
   // intersection, stay true
-//  if ( (rightIdx-leftIdx) > (lineWidth+2) ) {
-//    return true;
-//  }
-
-////   staircase, turn less severely so you don't lose the line
-//  if (leftIdx > leftThresh && leftIdx < rightThresh &&
-//      rightIdx > rightThresh) {
-//    servo.write(angle = angle + 1);
-//    return true;
-//  } else if (leftIdx < leftThresh && 
-//             rightIdx < rightThresh && rightIdx > leftThresh) {
-//    servo.write(angle = angle - 1);
-//    return true;
-//  }
-
+  if ( (rightIdx-leftIdx) > (lineWidth+2) ) {
+    if (debug) {
+      Serial.println("Intersection");
+    }
+    return true;
+  }
+  
   // if none of these, adjust according to PID
   return false;
 }
@@ -250,7 +247,10 @@ void PID() {
      Serial.println(angle);
   }
   if (go) { adjustSpeed(angle-prev_angle); }
+
+  if (abs(angle-prev_angle) > 2) {
     servo.write(angle);
+  }
   prev_angle = angle;
 }
 
@@ -452,14 +452,15 @@ void printCmdList() {
   Serial.write("      <s>    run\r\n");
   Serial.write("      <b>    Calibrate\r\n");
   
-  Serial.write("      <l>    Increase p by 10%\r\n");
-  Serial.write("      <k>    Decrease p by 10%\r\n");
-  Serial.write("      <m>    Inc d by 10%\r\n");
-  Serial.write("      <n>    Dec d by 10%\r\n");
-  Serial.write("      <x>    Inc speed by 1\r\n");
-  Serial.write("      <z>    Dec speed by 1\r\n");
-  Serial.write("      <h>    inc motor PWM frequency\r\n");
+  Serial.write("      <l>    Increase p_t by 10%\r\n");
+  Serial.write("      <k>    Decrease p_t by 10%\r\n");
+  Serial.write("      <m>    Inc d_t by 10%\r\n");
+  Serial.write("      <n>    Dec d_t by 10%\r\n");
+  Serial.write("      <x>    Inc speed by 1 tick\r\n");
+  Serial.write("      <z>    Dec speed by 1 tick\r\n");
   Serial.write("      <g>    Toggle debug statements\r\n");
+  Serial.write("       >     Inc controller threshold by 0.1\r\n");
+  Serial.write("       <     Dec controller threshold by 0.1\r\n");
 
   Serial.write("\n");
 }
@@ -590,6 +591,16 @@ bool doSerialCmd( byte cmd ) {
       printNewCmdLn();
     case (NONE):
       return false;
+    case ('>'):
+      controller.setThreshold(controller.getThreshold() + 0.1);
+      Serial.println("PID thresh is ");
+      Serial.println(controller.getThreshold());
+      break;
+    case ('<'):
+      controller.setThreshold(controller.getThreshold() - 0.1);
+      Serial.println("PID thresh is ");
+      Serial.println(controller.getThreshold());
+      break;
   }
   return false;
 }
@@ -607,4 +618,3 @@ byte getSerialCmd() {
     return NONE;
   }
 }
-

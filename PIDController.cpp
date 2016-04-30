@@ -1,11 +1,16 @@
 #include "PIDController.h"
 
 int PIDController::pid(float err) {
-  float P = err*kP;
-  I = I + err*kI;
-  float D = (err-prev_err)*kD;
-  prev_err = err;
-  return clamp(P+I+D);
+  float change = err-prev_err;
+  if (change > threshold) {
+    float pid = err*kP_t+I + err*kI+(change)*kD_t;
+    prev_err = err;
+    return clamp(pid);
+  } else {
+    float pid = err*kP_l+I + err*kI +(change)*kD_l;
+    prev_err = err;
+    return clamp(pid);
+  }
 }
 
 int PIDController::clamp (float pid) {
@@ -18,7 +23,7 @@ int PIDController::clamp (float pid) {
   }
 }
 void PIDController::incP() {
-  kP += 0.05;
+  kP_t += 0.01;
 }
 
 void PIDController::incI() {
@@ -26,11 +31,11 @@ void PIDController::incI() {
 }
 
 void PIDController::incD() {
-  kD += 0.05;
+  kD_t += 0.05;
 }
 
 void PIDController::decP() {
-  kP -= 0.05;
+  kP_t -= 0.01;
 }
 
 void PIDController::decI() {
@@ -38,11 +43,11 @@ void PIDController::decI() {
 }
 
 void PIDController::decD() {
-  kD -= 0.05;
+  kD_t -= 0.05;
 }
 
 float PIDController::getP() const {
-  return kP;
+  return kP_t;
 }
 
 float PIDController::getI() const {
@@ -50,6 +55,14 @@ float PIDController::getI() const {
 }
 
 float PIDController::getD() const {
-  return kD;
+  return kD_t;
+}
+
+void PIDController::setThreshold(float newVal) {
+  threshold = newVal;
+}
+
+float PIDController::getThreshold() {
+  return threshold;
 }
 
