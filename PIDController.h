@@ -26,15 +26,16 @@ class PIDController {
   private:
     float kP_t = 1.6; 
     float kD_t = 2;
-    
+
     float kP_l = 0.8;
     float kD_l = 0.2;
     
-    int prev_err = 0;
+    float prev_err = 0;
+    float prev_change = 0;
     float kI = 0;
     float I = 0;
-    const byte outMax = 60;
-    float threshold = 1.20;
+    const byte outMax = 63;
+    float threshold = 1.10;
     byte go = 0;
 };
 

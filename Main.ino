@@ -178,7 +178,7 @@ bool checkCases( int leftIdx, int rightIdx) {
   }
 
   // intersection, stay true
-  if ( (rightIdx-leftIdx) > (lineWidth+3) ) {
+  if ( (rightIdx-leftIdx) > (lineWidth+2) ) {
     if (debug) {
       Serial.println("Intersection");
     }
@@ -241,15 +241,17 @@ void PID() {
   error = calcError((rightIdx-leftIdx)/2 + leftIdx);
 
   angle = 90 + controller.pid(error, speedy);
+
+  if (go) {
+    analogWrite(motor, speedy);
+  }
   if (debug) {
      Serial.print("Angle  = ");
      Serial.println(angle);
   }
   //if (go) { adjustSpeed(angle-prev_angle); }
 
-  if (abs(angle-prev_angle) > 2) {
-    servo.write(angle);
-  }
+  servo.write(angle);
   prev_angle = angle;
 }
 

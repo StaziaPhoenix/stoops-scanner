@@ -2,23 +2,23 @@
 
 int PIDController::pid(float err, byte & speedy) {
   float change = err-prev_err;
-
-  if (go && speedy > 5 && change > 0.8) {
-    speedy = speedy - 5;
-  }
-
-  if (change > threshold) {
-    float pid = err*kP_t+I + err*kI+(change)*kD_t;
-    prev_err = err;
-    return clamp(pid);
+  
+  if (abs(change)-abs(prev_change) < 0) {
+    speedy++;
   } else {
-    if (go && speedy < 90) {
-      speedy = speedy + 1;
-    }
-    float pid = err*kP_l+I + err*kI +(change)*kD_l;
-    prev_err = err;
-    return clamp(pid);
+    speedy = 55;
   }
+  
+  float pid;
+  if (change > threshold) {
+    pid = err*kP_t+I + err*kI+(change)*kD_t;
+  } else {
+    pid = err*kP_l+I + err*kI +(change)*kD_l;
+  }
+
+  prev_err = err;
+  prev_change = change;
+  return clamp(pid);
 }
 
 void PIDController::setGo(byte state) {
