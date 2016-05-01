@@ -24,7 +24,7 @@
 
 byte debug = 0;
 byte go = 0;
-byte lineWidth = 11;
+byte lineWidth;
 
 int pixels[numPixels];
 byte digital[numPixels];
@@ -40,7 +40,7 @@ byte angle = 90;
 
 //int trigger = 2;
 int threshold;
-int speedy = 0;
+byte speedy = 0;
 
 // Byte (one character) read in from Virtual Serial COMM (Bluetooth)
 byte inByte = 0;
@@ -66,9 +66,9 @@ void setup() {
 
   servo.attach(servoPin);
   servo.write(angle);
-  
+
   Serial.print("LineWidth = ");
-  Serial.println(lineWidth);
+  Serial.println(lineWidth = setLineWidth());
 }
 
 byte getAck() {
@@ -125,17 +125,16 @@ void getLine() {
   }
 }
 
-//int setLineWidth() {
-//  getLine();
-//
-//  int leftIdx = findLeftEdge(0);
-//  int rightIdx = findRightEdge(numPixels-1);
-//
-//  return rightIdx - leftIdx;
-//}
+int setLineWidth() {
+  getLine();
+
+  int leftIdx = findLeftEdge(0);
+  int rightIdx = findRightEdge(numPixels-1);
+
+  return rightIdx - leftIdx;
+}
 
 void calibrate() {
-  
   go = 0;
   while (!doSerialCmd(getSerialCmd())) {
     PID();
@@ -179,7 +178,7 @@ bool checkCases( int leftIdx, int rightIdx) {
   }
 
   // intersection, stay true
-  if ( (rightIdx-leftIdx) > (lineWidth+2) ) {
+  if ( (rightIdx-leftIdx) > (lineWidth+3) ) {
     if (debug) {
       Serial.println("Intersection");
     }
@@ -241,12 +240,12 @@ void PID() {
   
   error = calcError((rightIdx-leftIdx)/2 + leftIdx);
 
-  angle = 90 + controller.pid(error);
+  angle = 90 + controller.pid(error, speedy);
   if (debug) {
      Serial.print("Angle  = ");
      Serial.println(angle);
   }
-  if (go) { adjustSpeed(angle-prev_angle); }
+  //if (go) { adjustSpeed(angle-prev_angle); }
 
   if (abs(angle-prev_angle) > 2) {
     servo.write(angle);
@@ -270,35 +269,51 @@ void printNewCmdLn() {
   Serial.write(">");
 }
 
-void incPid(byte feed) {
+void incPid_t(byte feed) {
   if (feed == 'p') {
-    controller.incP();
-    Serial.print("kP is ");
-    Serial.println(controller.getP());
-  } else if (feed == 'i') {
-    controller.incI();
-    Serial.print("kI is ");
-    Serial.println(controller.getI());
+    controller.incP_t();
+    Serial.print("kP_t is ");
+    Serial.println(controller.getP_t());
   } else if (feed == 'd') {
-    controller.incD();
-    Serial.print("kD is ");
-    Serial.println(controller.getD());
+    controller.incD_t();
+    Serial.print("kD_t is ");
+    Serial.println(controller.getD_t());
   }
 }
 
-void decPid(byte feed) {
+void decPid_t(byte feed) {
   if (feed == 'p') {
-    controller.decP();
-    Serial.print("kP is ");
-    Serial.println(controller.getP());
-  } else if (feed == 'i') {
-    controller.decI();
-    Serial.print("kI is ");
-    Serial.println(controller.getI());
+    controller.decP_t();
+    Serial.print("kP_t is ");
+    Serial.println(controller.getP_t());
   } else if (feed == 'd') {
-    controller.decD();
-    Serial.print("kD is ");
-    Serial.println(controller.getD());
+    controller.decD_t();
+    Serial.print("kD_t is ");
+    Serial.println(controller.getD_t());
+  }
+}
+
+void incPid_l(byte feed) {
+  if (feed == 'p') {
+    controller.incP_l();
+    Serial.print("kP_l is ");
+    Serial.println(controller.getP_l());
+  } else if (feed == 'd') {
+    controller.incD_l();
+    Serial.print("kD_l is ");
+    Serial.println(controller.getD_l());
+  }
+}
+
+void decPid_l(byte feed) {
+  if (feed == 'p') {
+    controller.decP_l();
+    Serial.print("kP_l is ");
+    Serial.println(controller.getP_l());
+  } else if (feed == 'd') {
+    controller.decD_l();
+    Serial.print("kD_l is ");
+    Serial.println(controller.getD_l());
   }
 }
 
@@ -379,14 +394,14 @@ void pwm100() {
 //  analogWrite(motor,128);
 //}
 
-//// Turns LED OFF and writes to Serial
-void pwm40() {
-  digitalWrite(led, LOW);
-  delay(300);
-  digitalWrite(led, HIGH);
-  Serial.write("    PWM 102 (40%)");
-  speedy = 102;
-}
+////// Turns LED OFF and writes to Serial
+//void pwm40() {
+//  digitalWrite(led, LOW);
+//  delay(300);
+//  digitalWrite(led, HIGH);
+//  Serial.write("    PWM 102 (40%)");
+//  speedy = 102;
+//}
 
 // Turns LED OFF and writes to Serial
 void pwm30() {
@@ -418,6 +433,7 @@ void pwm10() {
 // Turns LED OFF and writes to Serial
 void pwm0() {
   go = 0;
+  controller.setGo(0);
   digitalWrite(led, LOW);
   Serial.write("    PWM 0 (0%) motor is OFF!");
   analogWrite(motor,(speedy = 0));
@@ -452,10 +468,14 @@ void printCmdList() {
   Serial.write("      <s>    run\r\n");
   Serial.write("      <b>    Calibrate\r\n");
   
-  Serial.write("      <l>    Increase p_t by 10%\r\n");
-  Serial.write("      <k>    Decrease p_t by 10%\r\n");
+  Serial.write("      <l>    Increase p_t by 1%\r\n");
+  Serial.write("      <k>    Decrease p_t by 1%\r\n");
   Serial.write("      <m>    Inc d_t by 10%\r\n");
   Serial.write("      <n>    Dec d_t by 10%\r\n");
+  Serial.write("      <u>    Increase p_l by 1%\r\n");
+  Serial.write("      <y>    Decrease p_l by 1%\r\n");
+  Serial.write("      <j>    Inc d_l by 1%\r\n");
+  Serial.write("      <h>    Dec d_l by 1%\r\n");
   Serial.write("      <x>    Inc speed by 1 tick\r\n");
   Serial.write("      <z>    Dec speed by 1 tick\r\n");
   Serial.write("      <g>    Toggle debug statements\r\n");
@@ -500,10 +520,10 @@ bool doSerialCmd( byte cmd ) {
       printNewCmdLn();
       break;
     // Turn LED LOW
-    case ('4'):
-      pwm40();
-      printNewCmdLn();
-      break;
+//    case ('4'):
+//      pwm40();
+//      printNewCmdLn();
+//      break;
     // Turn LED LOW
 //    case ('5'):
 //      pwm50();
@@ -551,19 +571,35 @@ bool doSerialCmd( byte cmd ) {
       printNewCmdLn();
       break;
     case ('l'):
-      incPid('p');
+      incPid_t('p');
       printNewCmdLn();
       break;
     case ('k'):
-      decPid('p');
+      decPid_t('p');
       printNewCmdLn();
       break;
     case ('m'):
-      incPid('d');
+      incPid_t('d');
       printNewCmdLn();
       break;
     case ('n'):
-      decPid('d');
+      decPid_t('d');
+      printNewCmdLn();
+      break;
+    case ('u'):
+      incPid_l('p');
+      printNewCmdLn();
+      break;
+    case ('y'):
+      decPid_l('p');
+      printNewCmdLn();
+      break;
+    case ('j'):
+      incPid_l('d');
+      printNewCmdLn();
+      break;
+    case ('h'):
+      decPid_l('d');
       printNewCmdLn();
       break;
     case ('x'):
